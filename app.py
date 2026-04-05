@@ -1,14 +1,23 @@
-from flask import Flask, render_template, request, session, redirect, url_for, jsonify
-import google.generativeai as genai
-import os, random, json
-from dotenv import load_dotenv
-load_dotenv()
+import os
+import random
+import json
 from datetime import datetime
+from dotenv import load_dotenv
+from flask import Flask, render_template, request, session, redirect, url_for
 from werkzeug.security import generate_password_hash, check_password_hash
+import google.generativeai as genai
 
-api_key = os.getenv("AIzaSyBuleZUEyjvu6CV29Nv-u-eYS8pg2QJ9TI")
-genai.configure(api_key=api_key)
-model = genai.GenerativeModel("gemini-1.5-flash")
+load_dotenv()
+
+# ---------------- CONFIG ----------------
+api_key = os.getenv("GEMINI_API_KEY")
+if api_key:
+    genai.configure(api_key=api_key)
+    model = genai.GenerativeModel("gemini-1.5-flash")
+    print("✅ Gemini API loaded")
+else:
+    model = None
+    print("⚠️ No Gemini API key - using fallback")
 
 app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY", "cyberguard_secret_2024")
@@ -16,6 +25,7 @@ app.secret_key = os.getenv("SECRET_KEY", "cyberguard_secret_2024")
 USERS_FILE = "users.json"
 SCORES_FILE = "scores.json"
 
+# ---------------- HELPERS ----------------
 def load_json(file):
     if os.path.exists(file):
         with open(file) as f:
@@ -26,21 +36,34 @@ def save_json(file, data):
     with open(file, "w") as f:
         json.dump(data, f, indent=2)
 
+def login_required(f):
+    from functools import wraps
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if "user" not in session:
+            return redirect(url_for("login"))
+        return f(*args, **kwargs)
+    return decorated
+
+# ---------------- AI URL CHECK ----------------
 def analyze_url_ai(url):
+    if not model:
+        return None
     try:
         prompt = f"""You are a cybersecurity expert. Analyze this URL.
 URL: {url}
-Respond in this exact format:
+Respond in this exact format only:
 VERDICT: [SAFE/SUSPICIOUS/DANGEROUS]
 RISK_SCORE: [0-100]
-REASON: [One sentence]
+REASON: [One sentence explanation]
 TIPS: [One security tip]"""
         response = model.generate_content(prompt)
         return response.text
     except Exception as e:
-        print(f"Gemini API error: {e}")
+        print(f"Gemini error: {e}")
         return None
 
+# ---------------- FALLBACK ----------------
 def rule_based_check(url):
     score = 0
     reasons = []
@@ -64,16 +87,7 @@ def parse_result(raw):
             parsed[key.strip()] = val.strip()
     return parsed
 
-def login_required(f):
-    from functools import wraps
-    @wraps(f)
-    def decorated(*args, **kwargs):
-        if "user" not in session:
-            return redirect(url_for("login"))
-        return f(*args, **kwargs)
-    return decorated
-
-# ---------- AUTH ----------
+# ---------------- AUTH ----------------
 @app.route("/register", methods=["GET","POST"])
 def register():
     if request.method == "POST":
@@ -111,34 +125,42 @@ def logout():
     session.clear()
     return redirect(url_for("home"))
 
-# ---------- HOME ----------
+# ---------------- HOME ----------------
 @app.route("/", methods=["GET","POST"])
 def home():
     result = None
     if request.method == "POST":
         url = request.form["url"]
-        raw = analyze_url_ai(url) or rule_based_check(url)
-        source = "🤖 AI Analysis" if analyze_url_ai else "🧠 Smart Detection"
+        ai_result = analyze_url_ai(url)
+        raw = ai_result if ai_result else rule_based_check(url)
+        source = "🤖 AI Analysis" if ai_result else "🧠 Smart Detection"
         p = parse_result(raw)
         result = {
             "source": source,
-            "verdict": p.get("VERDICT","UNKNOWN"),
+            "verdict": p.get("VERDICT", "UNKNOWN"),
             "risk": int(p.get("RISK_SCORE", 50)),
-            "reason": p.get("REASON","Analysis complete"),
-            "tips": p.get("TIPS","Stay safe online"),
+            "reason": p.get("REASON", "Analysis complete"),
+            "tips": p.get("TIPS", "Stay safe online"),
             "url": url
         }
         if "user" in session:
             users = load_json(USERS_FILE)
-            users[session["user"]]["urls_scanned"] = users[session["user"]].get("urls_scanned",0) + 1
+            users[session["user"]]["urls_scanned"] = users[session["user"]].get("urls_scanned", 0) + 1
             save_json(USERS_FILE, users)
             scores = load_json(SCORES_FILE)
-            if session["user"] not in scores: scores[session["user"]] = []
-            scores[session["user"]].append({"type":"url_scan","url":url,"verdict":result["verdict"],"risk":result["risk"],"date":datetime.now().strftime("%Y-%m-%d %H:%M")})
+            if session["user"] not in scores:
+                scores[session["user"]] = []
+            scores[session["user"]].append({
+                "type": "url_scan",
+                "url": url,
+                "verdict": result["verdict"],
+                "risk": result["risk"],
+                "date": datetime.now().strftime("%Y-%m-%d %H:%M")
+            })
             save_json(SCORES_FILE, scores)
     return render_template("index.html", result=result)
 
-# ---------- TRAINING ----------
+# ---------------- TRAINING ----------------
 questions = [
     {"q":"Email asks to verify your bank account urgently.","correct":"spam","explanation":"Urgency + sensitive info = phishing.","category":"Email"},
     {"q":"Message says you won a lottery and must click a link.","correct":"spam","explanation":"Unexpected rewards are scams.","category":"Social"},
@@ -190,23 +212,39 @@ def training():
             else:
                 session["score"] -= 5
                 result = "wrong"
-            explanation = q.get("explanation","")
+            explanation = q.get("explanation", "")
             session["answered"] = True
             if "user" in session:
                 users = load_json(USERS_FILE)
                 users[session["user"]]["total_score"] = session["score"]
                 save_json(USERS_FILE, users)
                 scores = load_json(SCORES_FILE)
-                if session["user"] not in scores: scores[session["user"]] = []
-                scores[session["user"]].append({"type":"quiz","result":result,"category":q.get("category","General"),"score":session["score"],"date":datetime.now().strftime("%Y-%m-%d %H:%M")})
+                if session["user"] not in scores:
+                    scores[session["user"]] = []
+                scores[session["user"]].append({
+                    "type": "quiz",
+                    "result": result,
+                    "category": q.get("category", "General"),
+                    "score": session["score"],
+                    "date": datetime.now().strftime("%Y-%m-%d %H:%M")
+                })
                 save_json(SCORES_FILE, scores)
-    return render_template("training.html", question=q.get("q",""), result=result, explanation=explanation, score=session["score"], answered=session["answered"], index=session["question_index"]+1, total=len(shuffled), category=q.get("category","General"))
+    return render_template("training.html",
+        question=q.get("q",""),
+        result=result,
+        explanation=explanation,
+        score=session["score"],
+        answered=session["answered"],
+        index=session["question_index"]+1,
+        total=len(shuffled),
+        category=q.get("category","General")
+    )
 
-# ---------- SIMULATIONS ----------
+# ---------------- SIMULATIONS ----------------
 simulations = [
     {"id":1,"title":"Fake Bank Alert","from_email":"security@bankofind1a.com","subject":"🚨 URGENT: Your account has been compromised!","body":"Dear Customer,\n\nWe detected suspicious activity on your account. Your account will be SUSPENDED in 24 hours unless you verify your identity immediately.\n\nClick the button below to verify now. Failure to act will result in permanent account closure.","cta":"Verify Account Now","red_flags":["Fake domain (ind1a uses number '1')","Urgency and fear tactics","Threatens permanent closure","Generic greeting 'Dear Customer'"],"verdict":"PHISHING","explanation":"Classic phishing. The domain swaps 'i' for '1'. Urgency is created to stop you from thinking clearly."},
     {"id":2,"title":"Free Netflix Offer","from_email":"offers@netflix-freepremium.xyz","subject":"You've been selected for FREE Netflix! 🎉","body":"Congratulations!\n\nYou have been randomly selected for 12 months of Netflix Premium FREE!\n\nThis offer expires in 2 hours. Only 3 spots left.\n\nEnter your card details to activate (for verification only - you won't be charged).","cta":"Claim Free Netflix","red_flags":["Suspicious .xyz domain","Too good to be true","Artificial urgency","Asks for card details"],"verdict":"PHISHING","explanation":"Netflix never gives free subscriptions via email. The .xyz domain, fake urgency, and request for card details are all red flags."},
-    {"id":3,"title":"IT Department Password Reset","from_email":"it-support@company-helpdesk.net","subject":"Action Required: Reset Your Password","body":"Hello,\n\nOur security system detected that your password hasn't been changed in 90 days.\n\nFor security compliance, please reset your password within 48 hours using the link below.\n\nIf you don't reset, your account access will be revoked.","cta":"Reset Password Now","red_flags":["External domain not company's official domain","Unsolicited password reset","Threatens account revocation","Creates time pressure"],"verdict":"PHISHING","explanation":"Real IT departments use the company's own domain. External domains like 'company-helpdesk.net' are impersonation attempts."},
+    {"id":3,"title":"IT Department Password Reset","from_email":"it-support@company-helpdesk.net","subject":"Action Required: Reset Your Password","body":"Hello,\n\nOur security system detected that your password hasn't been changed in 90 days.\n\nFor security compliance, please reset your password within 48 hours.\n\nIf you don't reset, your account access will be revoked.","cta":"Reset Password Now","red_flags":["External domain not company's official domain","Unsolicited password reset","Threatens account revocation","Creates time pressure"],"verdict":"PHISHING","explanation":"Real IT departments use the company's own domain. External domains like 'company-helpdesk.net' are impersonation attempts."},
     {"id":4,"title":"Package Delivery Notice","from_email":"delivery@fedex-tracking-update.com","subject":"Your package could not be delivered","body":"Dear Customer,\n\nWe attempted to deliver your package today but were unsuccessful.\n\nTo reschedule delivery, please confirm your address and pay a small redelivery fee of ₹25.\n\nYour package will be returned if not claimed within 3 days.","cta":"Reschedule Delivery","red_flags":["Fake FedEx domain","Asks for payment for redelivery","Vague about package details","Time pressure tactic"],"verdict":"PHISHING","explanation":"Courier companies never charge redelivery fees via email links. The fake domain and payment request are clear phishing signs."},
 ]
 
@@ -217,7 +255,8 @@ def simulation():
 @app.route("/simulation/<int:sim_id>", methods=["GET","POST"])
 def simulation_detail(sim_id):
     sim = next((s for s in simulations if s["id"] == sim_id), None)
-    if not sim: return redirect(url_for("simulation"))
+    if not sim:
+        return redirect(url_for("simulation"))
     result = None
     if request.method == "POST":
         answer = request.form.get("answer")
@@ -225,16 +264,22 @@ def simulation_detail(sim_id):
         if "user" in session:
             users = load_json(USERS_FILE)
             if result == "correct":
-                users[session["user"]]["total_score"] = users[session["user"]].get("total_score",0) + 15
-                users[session["user"]]["simulations_completed"] = users[session["user"]].get("simulations_completed",0) + 1
+                users[session["user"]]["total_score"] = users[session["user"]].get("total_score", 0) + 15
+                users[session["user"]]["simulations_completed"] = users[session["user"]].get("simulations_completed", 0) + 1
             save_json(USERS_FILE, users)
             scores = load_json(SCORES_FILE)
-            if session["user"] not in scores: scores[session["user"]] = []
-            scores[session["user"]].append({"type":"simulation","sim_title":sim["title"],"result":result,"date":datetime.now().strftime("%Y-%m-%d %H:%M")})
+            if session["user"] not in scores:
+                scores[session["user"]] = []
+            scores[session["user"]].append({
+                "type": "simulation",
+                "sim_title": sim["title"],
+                "result": result,
+                "date": datetime.now().strftime("%Y-%m-%d %H:%M")
+            })
             save_json(SCORES_FILE, scores)
     return render_template("simulation_detail.html", sim=sim, result=result)
 
-# ---------- DASHBOARD ----------
+# ---------------- DASHBOARD ----------------
 @app.route("/dashboard")
 @login_required
 def dashboard():
@@ -268,11 +313,13 @@ def dashboard():
         member_since=user_data.get("created","")[:10]
     )
 
+# ---------------- RESET ----------------
 @app.route("/reset")
 def reset():
     for key in ["score","question_index","answered","shuffled_questions"]:
         session.pop(key, None)
     return redirect(url_for("training"))
 
+# ---------------- RUN ----------------
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 10000)), debug=False)
