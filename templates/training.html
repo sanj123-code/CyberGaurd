@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="training-section">
+  <div class="training-header">
+    <h1>🎯 Spam or Not?</h1>
+    <div class="score-badge">Score: {{ score }}</div>
+  </div>
+  <div class="progress-bar">
+    <div class="progress-fill" style="width: {{ (index/total)*100 }}%"></div>
+  </div>
+  <p class="q-counter">Question {{ index }} of {{ total }} — <span class="category-tag">{{ category }}</span></p>
+
+  <div class="question-card">
+    <p class="question-text">{{ question }}</p>
+    {% if not answered %}
+    <form method="POST" class="answer-form">
+      <button type="submit" name="answer" value="spam" class="btn-spam">🚨 Spam / Phishing</button>
+      <button type="submit" name="answer" value="not_spam" class="btn-safe">✅ Legitimate</button>
+    </form>
+    {% else %}
+      {% if result == "correct" %}
+        <div class="feedback correct">✅ Correct! +10 points</div>
+      {% else %}
+        <div class="feedback wrong">❌ Wrong! -5 points</div>
+      {% endif %}
+      <div class="explanation">💡 {{ explanation }}</div>
+      <form method="POST">
+        <button type="submit" name="action" value="next" class="btn-next">Next Question →</button>
+      </form>
+    {% endif %}
+  </div>
+  <a href="/reset" class="reset-link">Reset Training</a>
+</section>
+{% endblock %}

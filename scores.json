@@ -1,0 +1,32 @@
+{
+  "sanjana": [
+    {
+      "type": "url_scan",
+      "url": "http://login-verify-bank-secure.xyz/account/confirm",
+      "verdict": "DANGEROUS",
+      "risk": 90,
+      "date": "2026-04-05 18:57"
+    },
+    {
+      "type": "url_scan",
+      "url": "http://free-netflix-premium-offer.tk/claim",
+      "verdict": "SAFE",
+      "risk": 10,
+      "date": "2026-04-05 19:03"
+    },
+    {
+      "type": "quiz",
+      "result": "correct",
+      "category": "Email",
+      "score": 10,
+      "date": "2026-04-05 19:03"
+    },
+    {
+      "type": "quiz",
+      "result": "wrong",
+      "category": "Email",
+      "score": 5,
+      "date": "2026-04-05 19:10"
+    }
+  ]
+}

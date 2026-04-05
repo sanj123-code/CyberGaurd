@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="sim-detail">
+  <a href="/simulation" class="back-link">← Back to Simulations</a>
+  <h2>Can you spot the threat?</h2>
+
+  <div class="fake-email">
+    <div class="email-header">
+      <div class="email-row"><span>From:</span> <strong>{{ sim.from_email }}</strong></div>
+      <div class="email-row"><span>Subject:</span> <strong>{{ sim.subject }}</strong></div>
+    </div>
+    <div class="email-body">
+      {{ sim.body | replace('\n', '<br>') | safe }}
+    </div>
+    <div class="email-cta">
+      <button class="fake-btn" onclick="alert('🚨 This is a simulated phishing link! Never click unknown links.')">{{ sim.cta }}</button>
+    </div>
+  </div>
+
+  {% if not result %}
+  <div class="verdict-question">
+    <p>What is this email?</p>
+    <form method="POST" class="verdict-form">
+      <button type="submit" name="answer" value="phishing" class="btn-spam">🚨 Phishing Attack</button>
+      <button type="submit" name="answer" value="safe" class="btn-safe">✅ Legitimate Email</button>
+    </form>
+  </div>
+  {% else %}
+    {% if result == "correct" %}
+    <div class="sim-result correct">
+      <h3>✅ Correct! +15 points</h3>
+      <p>{{ sim.explanation }}</p>
+    </div>
+    {% else %}
+    <div class="sim-result wrong">
+      <h3>❌ That was phishing!</h3>
+      <p>{{ sim.explanation }}</p>
+    </div>
+    {% endif %}
+    <div class="red-flags">
+      <h4>🚩 Red Flags in this email:</h4>
+      <ul>{% for flag in sim.red_flags %}<li>{{ flag }}</li>{% endfor %}</ul>
+    </div>
+    <a href="/simulation" class="btn-next">Try Another →</a>
+  {% endif %}
+</section>
+{% endblock %}

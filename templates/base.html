@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>CyberGuard</title>
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;600;700&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}"/>
+</head>
+<body>
+  <nav class="navbar">
+    <a class="brand" href="/">⚡ CyberGuard</a>
+    <div class="nav-links">
+      <a href="/">URL Scanner</a>
+      <a href="/training">Training</a>
+      <a href="/simulation">Simulations</a>
+      {% if session.user %}
+        <a href="/dashboard">Dashboard</a>
+        <a href="/logout" class="btn-outline">Logout</a>
+      {% else %}
+        <a href="/login" class="btn-outline">Login</a>
+        <a href="/register" class="btn-solid">Register</a>
+      {% endif %}
+    </div>
+  </nav>
+  <main>{% block content %}{% endblock %}</main>
+  <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>

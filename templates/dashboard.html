@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="dashboard">
+  <div class="dash-header">
+    <h1>👤 {{ username }}'s Dashboard</h1>
+    <p class="member-since">Member since {{ member_since }}</p>
+  </div>
+
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-num">{{ total_score }}</div>
+      <div class="stat-label">Total Score</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-num">{{ urls_scanned }}</div>
+      <div class="stat-label">URLs Scanned</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-num">{{ quiz_correct }}/{{ quiz_total }}</div>
+      <div class="stat-label">Quiz Accuracy</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-num">{{ sim_correct }}/{{ sim_total }}</div>
+      <div class="stat-label">Simulations</div>
+    </div>
+  </div>
+
+  <div class="chart-section">
+    <h3>📈 Score History</h3>
+    <canvas id="scoreChart" height="100"></canvas>
+  </div>
+
+  {% if recent_scans %}
+  <div class="recent-scans">
+    <h3>🔍 Recent URL Scans</h3>
+    <table>
+      <tr><th>URL</th><th>Verdict</th><th>Risk</th><th>Date</th></tr>
+      {% for scan in recent_scans %}
+      <tr>
+        <td class="url-cell">{{ scan.url[:40] }}{% if scan.url|length > 40 %}...{% endif %}</td>
+        <td><span class="verdict-tag {{ scan.verdict | lower }}">{{ scan.verdict }}</span></td>
+        <td>{{ scan.risk }}/100</td>
+        <td>{{ scan.date }}</td>
+      </tr>
+      {% endfor %}
+    </table>
+  </div>
+  {% endif %}
+</section>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+  const history = {{ score_history | safe }};
+  if (history.length > 0) {
+    const ctx = document.getElementById('scoreChart').getContext('2d');
+    new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: history.map(h => h.date),
+        datasets: [{
+          label: 'Score',
+          data: history.map(h => h.score),
+          borderColor: '#00f5ff',
+          backgroundColor: 'rgba(0,245,255,0.1)',
+          tension: 0.4,
+          fill: true
+        }]
+      },
+      options: {
+        plugins: { legend: { labels: { color: '#a0b4c8' } } },
+        scales: {
+          x: { ticks: { color: '#a0b4c8' }, grid: { color: '#1e3a4a' } },
+          y: { ticks: { color: '#a0b4c8' }, grid: { color: '#1e3a4a' } }
+        }
+      }
+    });
+  }
+</script>
+{% endblock %}

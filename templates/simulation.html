@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="sim-section">
+  <div class="sim-header">
+    <h1>⚠️ Attack Simulations</h1>
+    <p>Experience real phishing attacks safely. Can you spot them?</p>
+  </div>
+  <div class="sim-grid">
+    {% for sim in simulations %}
+    <a href="/simulation/{{ sim.id }}" class="sim-card">
+      <div class="sim-icon">📧</div>
+      <h3>{{ sim.title }}</h3>
+      <p>From: {{ sim.from_email }}</p>
+      <span class="try-btn">Try Simulation →</span>
+    </a>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}

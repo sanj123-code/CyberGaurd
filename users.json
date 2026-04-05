@@ -1,0 +1,9 @@
+{
+  "sanjana": {
+    "password": "scrypt:32768:8:1$tkocr4xDnzRg1J9i$7306a836c446ebe34519ad588495b7e516c7037676109d946e1a6cb063ccb1c0ce50e9073ce51864e718d7bfc00589d5cdebfe51060fe3b7467c325ec8f9277d",
+    "created": "2026-04-05T18:56:40.273685",
+    "total_score": 5,
+    "simulations_completed": 0,
+    "urls_scanned": 2
+  }
+}

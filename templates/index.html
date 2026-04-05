@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="hero">
+  <div class="hero-text">
+    <h1>Is This URL <span class="accent">Safe?</span></h1>
+    <p>AI-powered phishing detection. Paste any URL and we'll analyze it instantly.</p>
+  </div>
+  <form method="POST" class="scan-form">
+    <div class="input-row">
+      <input type="text" name="url" placeholder="https://suspicious-link.com" required autocomplete="off"/>
+      <button type="submit">Scan Now</button>
+    </div>
+  </form>
+
+  {% if result %}
+  <div class="result-card verdict-{{ result.verdict | lower }}">
+    <div class="result-header">
+      <span class="verdict-badge">
+        {% if result.verdict == "SAFE" %}✅{% elif result.verdict == "SUSPICIOUS" %}⚠️{% else %}❌{% endif %}
+        {{ result.verdict }}
+      </span>
+      <span class="source-tag">{{ result.source }}</span>
+    </div>
+    <div class="risk-bar-wrap">
+      <span>Risk Score</span>
+      <div class="risk-bar">
+        <div class="risk-fill" style="width:{{ result.risk }}%"></div>
+      </div>
+      <span class="risk-num">{{ result.risk }}/100</span>
+    </div>
+    <p class="reason"><strong>Analysis:</strong> {{ result.reason }}</p>
+    <p class="tips">💡 <strong>Tip:</strong> {{ result.tips }}</p>
+  </div>
+  {% endif %}
+</section>
+
+<section class="features">
+  <div class="feature-card">
+    <div class="icon">🤖</div>
+    <h3>AI Detection</h3>
+    <p>Gemini AI analyzes URLs for phishing patterns in real time.</p>
+  </div>
+  <div class="feature-card">
+    <div class="icon">🎯</div>
+    <h3>Attack Simulation</h3>
+    <p>Experience real phishing attacks in a safe environment.</p>
+  </div>
+  <div class="feature-card">
+    <div class="icon">📈</div>
+    <h3>Track Progress</h3>
+    <p>Your awareness score improves as you train.</p>
+  </div>
+</section>
+{% endblock %}
